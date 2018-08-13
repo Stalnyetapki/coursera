@@ -20,6 +20,14 @@ class Client:
         except socket.error as err:
             raise ClientError
 
+        data = b""
+
+        while not data.endswith(b"\n\n"):
+            try:
+                data += self.sock.recv(1024)
+            except socket.error as err:
+                raise ClientError("error recv data", err)
+
     def get(self, metric):
         try:
             return self.sock.sendall("get {metr}\n".format(metr=metric).encode("utf-8"))
