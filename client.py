@@ -33,3 +33,31 @@ class Client:
             return self.sock.sendall("get {metr}\n".format(metr=metric).encode("utf-8"))
         except socket.error as err:
                 raise ClientError("error send", err)
+
+        data = b""
+
+        while not data.endswith(b"\n\n"):
+            try:
+                data += self.sock.recv(1024)
+            except socket.error as err:
+                raise ClientError("error recv data", err)
+
+        decoded_data = data.decode()
+
+        status, payload = decoded_data.split("\n", 1)
+        payload = payload.strip()
+
+        if status == "error":
+            raise ClientError(payload)
+
+        data = {}
+        if payload == "":
+            return data
+
+        for row in payload.split("\n"):
+            key, value, timestamp = row.split()
+            if key not in data:
+                data[key] = []
+            data[key].append((int(timestamp), float(value)))
+
+        return data
