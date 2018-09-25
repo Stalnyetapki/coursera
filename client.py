@@ -9,16 +9,19 @@ class Client:
         self.host = host
         self.port = port
         self.timeout = timeout
-        self.sock = socket.create_connection((self.host, self.port), self.timeout)
+        try:
+            self.sock = socket.create_connection((self.host, self.port), self.timeout)
+        except socket.error as err:
+            raise ClientError("error create connection", err)
 
-    def put(self, metric, value, timestamp=None):
+    def put(self, key, value, timestamp=None):
         try:
             if timestamp == None:
-                self.sock.sendall("put {metr} {val} {time}\n".format(metr=metric, val=str(value), time=str(int(time.time()))).encode("utf-8"))
+                self.sock.sendall("put {metric} {val} {time}\n".format(metric=key, val=str(value), time=str(int(time.time()))).encode())
             else:
-                self.sock.sendall("put {metr} {val} {time}\n".format(metr=metric, val=str(value), time=str(timestamp)).encode("utf-8"))
+                self.sock.sendall("put {metric} {val} {time}\n".format(metric=key, val=str(value), time=str(timestamp)).encode())
         except socket.error as err:
-            raise ClientError
+            raise ClientError("error send data", err)
 
         data = b""
 
@@ -27,12 +30,20 @@ class Client:
                 data += self.sock.recv(1024)
             except socket.error as err:
                 raise ClientError("error recv data", err)
+        
+        decoded_data = data.decode()
+ 
+        status, payload = decoded_data.split("\n", 1)
+        payload = payload.strip()
+ 
+        if status == "error":
+            raise ClientError(payload)
 
-    def get(self, metric):
+    def get(self, key):
         try:
-            return self.sock.sendall("get {metr}\n".format(metr=metric).encode("utf-8"))
+            self.sock.sendall("get {metric}\n".format(metric=key).encode())
         except socket.error as err:
-                raise ClientError("error send", err)
+            raise ClientError("error send", err)
 
         data = b""
 
